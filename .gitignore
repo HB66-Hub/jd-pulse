@@ -1,6 +1,9 @@
 # SSH keys and tunnel files (keep local)
 localhost-run-key
 localhost-run-key.pub
+github-key
+github-key.pub
+ssh-config
 setup-startup.ps1
 start.bat
 server.js
