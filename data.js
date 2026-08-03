@@ -214,11 +214,11 @@ const TIMELINE_DATA = [
 ];
 
 const STATS_DATA = [
-  { value: "3157亿「, label: 」2026Q1营收「, change: 」↑ 4.9% YoY · 超预期", positive: true },
-  { value: "7.4亿+「, label: 」年度活跃用户「, change: 」连续10季双位数增长", positive: true },
-  { value: "世界500强#41「, label: 」财富排名「, change: 」连续11年上榜 · 大陆民企第一", positive: true },
-  { value: "超百亿/年「, label: 」一线员工五险一金投入「, change: 」15万全职骑手全覆盖", positive: true },
-  { value: "30%「, label: 」2026外卖市占目标「, change: 」用户超2.4亿 · 七鲜小厨年底覆盖一二线", positive: true }
+  { value: "3157亿", label: "2026Q1营收", change: "↑ 4.9% YoY · 超预期", positive: true },
+  { value: "7.4亿+", label: "年度活跃用户", change: "连续10季双位数增长", positive: true },
+  { value: "世界500强#41", label: "财富排名", change: "连续11年上榜 · 大陆民企第一", positive: true },
+  { value: "超百亿/年", label: "一线员工五险一金投入", change: "15万全职骑手全覆盖", positive: true },
+  { value: "30%", label: "2026外卖市占目标", change: "用户超2.4亿 · 七鲜小厨年底覆盖一二线", positive: true }
 ];
 
 const TICKER_ITEMS = [
@@ -236,13 +236,13 @@ const TICKER_ITEMS = [
 
 // 数据源列表
 const DATA_SOURCES = [
-  { name: "财联社「, url: 」https://www.cls.cn「, logo: 」📰" },
-  { name: "东方财富「, url: 」https://www.eastmoney.com「, logo: 」📊" },
-  { name: "新浪财经「, url: 」https://finance.sina.com.cn「, logo: 」📉" },
-  { name: "证券时报「, url: 」https://www.stcn.com「, logo: 」📈" },
-  { name: "中国日报「, url: 」https://www.chinadaily.com.cn「, logo: 」🏛️" },
-  { name: "中国新闻网「, url: 」https://www.chinanews.com.cn「, logo: 」📰" },
-  { name: "同花顺「, url: 」https://www.10jqka.com.cn「, logo: 」📶" },
-  { name: "出海网「, url: 」https://www.chwang.com「, logo: 」🌍" },
-  { name: "京东官方「, url: 」https://corporate.jd.com「, logo: 」🐕" }
+  { name: "财联社", url: "https://www.cls.cn", logo: "📰" },
+  { name: "东方财富", url: "https://www.eastmoney.com", logo: "📊" },
+  { name: "新浪财经", url: "https://finance.sina.com.cn", logo: "📉" },
+  { name: "证券时报", url: "https://www.stcn.com", logo: "📈" },
+  { name: "中国日报", url: "https://www.chinadaily.com.cn", logo: "🏛️" },
+  { name: "中国新闻网", url: "https://www.chinanews.com.cn", logo: "📰" },
+  { name: "同花顺", url: "https://www.10jqka.com.cn", logo: "📶" },
+  { name: "出海网", url: "https://www.chwang.com", logo: "🌍" },
+  { name: "京东官方", url: "https://corporate.jd.com", logo: "🐕" }
 ];
