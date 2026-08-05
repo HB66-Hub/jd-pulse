@@ -162,6 +162,53 @@ async function fetchEastmoney() {
   return out;
 }
 
+// ---- AI 摘要（DeepSeek，可选）----
+// 通过环境变量 DEEPSEEK_API_KEY 启用；未配置时回退为原文摘要，任务仍可运行
+async function aiSummarize(items) {
+  const key = process.env.DEEPSEEK_API_KEY;
+  if (!key || items.length === 0) return items;
+  try {
+    const prompt =
+      '你是一名财经新闻编辑。请为下面每条京东相关新闻生成客观、简洁的中文摘要（60~120字）：直接概括核心事实（谁、什么事、关键数据/影响），不要评价、不要开头语、不要输出任何多余内容。' +
+      '严格按输入顺序输出 JSON 数组，每项是一个摘要字符串：["摘要1", "摘要2", ...]\n\n' +
+      items
+        .map(
+          (it, i) =>
+            `${i + 1}. [${it.date}] ${it.title}\n原文：${(it.desc || '').slice(0, 220)}`
+        )
+        .join('\n\n');
+    const r = await fetch('https://api.deepseek.com/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${key}`,
+      },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.3,
+        max_tokens: 2500,
+      }),
+      timeout: 90000,
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    const content = (data.choices && data.choices[0] && data.choices[0].message.content) || '';
+    const m = content.match(/\[[\s\S]*\]/);
+    const parsed = JSON.parse(m ? m[0] : content);
+    const arr = Array.isArray(parsed) ? parsed : parsed.summaries;
+    if (Array.isArray(arr)) {
+      items.forEach((it, i) => {
+        const s = arr[i];
+        if (typeof s === 'string' && s.trim().length >= 20) it.summary = s.trim();
+      });
+    }
+  } catch (e) {
+    console.warn(`[warn] AI 摘要失败，使用原文摘要：${e.message}`);
+  }
+  return items;
+}
+
 // ---- 数据源 2/3：RSS（Bing / Google News）----
 async function fetchRss(url) {
   const res = await fetch(url, {
@@ -313,12 +360,16 @@ async function main() {
 
   console.log(`今天：${today}，过滤后最近 ${DAYS_BACK} 天内京东相关新闻 ${fresh.length} 条`);
 
-  // 3. 合并（新条目在前，旧条目去重后补足，按日期降序）
+  // 3. AI 摘要（仅对新条目；失败自动回退原文）
+  fresh = await aiSummarize(fresh);
+
+  // 4. 合并（新条目在前，旧条目去重后补足，按日期降序）
   const oldKeys = new Set(oldNews.map((n) => normalizeTitle(n.title)));
   const merged = [];
   for (const f of fresh) {
     if (oldKeys.has(normalizeTitle(f.title))) continue;
     const { tag, label } = classify(f.title);
+    const base = (f.summary || f.desc || f.title).trim();
     merged.push({
       id: 0,
       tag,
@@ -327,23 +378,27 @@ async function main() {
       date: f.date,
       source: f.source,
       title: f.title,
-      summary: f.desc.length > 140 ? f.desc.slice(0, 140) + '……' : f.desc || f.title,
+      summary: base.length > 140 ? base.slice(0, 140) + '……' : base || f.title,
     });
   }
   const rest = oldNews.filter(
-    (n) => !fresh.some((f) => normalizeTitle(f.title) === normalizeTitle(n.title))
+    (n) => !merged.some((f) => normalizeTitle(f.title) === normalizeTitle(n.title))
   );
-  const news = merged.concat(rest).slice(0, MAX_NEWS);
+  // 合并后统一按日期降序（最新在前），再截取上限
+  const news = merged
+    .concat(rest)
+    .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
+    .slice(0, MAX_NEWS);
   news.forEach((n, i) => (n.id = i + 1));
 
-  // 4. 重建 TICKER_ITEMS（滚动快讯：新条目替换最旧的）
+  // 5. 重建 TICKER_ITEMS（滚动快讯：新条目替换最旧的）
   const ticker = news.slice(0, MAX_TICKER).map((n) => {
     const emoji = TAG_EMOJI[n.tag] || '📢';
     const ends = /[！!。]$/.test(n.title);
     return `${emoji} ${n.title}${ends ? '' : '！'}`;
   });
 
-  // 5. 重建 TIMELINE_DATA（新条目插到最前）
+  // 6. 重建 TIMELINE_DATA（新条目插到最前）
   const tlKeys = new Set(oldTimeline.map((t) => normalizeTitle(t.title)));
   const tlNew = merged
     .map((n) => ({
@@ -355,7 +410,7 @@ async function main() {
     .filter((t) => !tlKeys.has(normalizeTitle(t.title)));
   const timeline = tlNew.concat(oldTimeline).slice(0, MAX_TIMELINE);
 
-  // 6. 序列化（内容中的 ASCII 双引号 → 中文引号，防止截断）
+  // 7. 序列化（内容中的 ASCII 双引号 → 中文引号，防止截断）
   const sanitize = (s) => String(s).replace(/"/g, '“');
   const jsStr = (s) => JSON.stringify(sanitize(s));
   const newsJs = news
