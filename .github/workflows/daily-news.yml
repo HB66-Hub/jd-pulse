@@ -1,0 +1,49 @@
+name: 每日新闻更新 (JD Pulse)
+
+# 每天北京时间 08:00 自动抓取京东新闻并更新 data.js
+# 运行在 GitHub 云服务器上，不依赖本地电脑/OpenClaw
+on:
+  schedule:
+    # 08:00 Asia/Shanghai = 00:00 UTC
+    - cron: '0 0 * * *'
+  workflow_dispatch: {}   # 支持在 GitHub 页面手动触发
+
+permissions:
+  contents: write
+
+concurrency:
+  group: jd-pulse-daily
+  cancel-in-progress: false
+
+jobs:
+  update-news:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 抓取新闻并更新 data.js
+        run: node .github/scripts/update-news.js
+
+      - name: 校验 data.js 语法
+        run: node --check data.js
+
+      - name: 提交并推送（无变化则跳过）
+        run: |
+          if git diff --quiet data.js; then
+            echo "data.js 无变化，跳过提交"
+            exit 0
+          fi
+          git config user.name "jd-pulse-bot"
+          git config user.email "jd-pulse-bot@users.noreply.github.com"
+          git add data.js
+          git commit -m "每日新闻更新 $(date +%F)"
+          git push
