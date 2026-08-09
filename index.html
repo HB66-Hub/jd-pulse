@@ -857,10 +857,10 @@
         // ====== 京东系股价（五家上市公司行情） ======
         const STOCKS = [
             { key: 'hk09618', name: '京东集团', code: '09618.HK', market: '港股', link: 'https://quote.eastmoney.com/hk/09618.html' },
+            { key: 'usJD', name: '京东集团美股', code: 'JD', market: '美股', link: 'https://quote.eastmoney.com/us/JD.html' },
             { key: 'hk02618', name: '京东物流', code: '02618.HK', market: '港股', link: 'https://quote.eastmoney.com/hk/02618.html' },
             { key: 'hk06618', name: '京东健康', code: '06618.HK', market: '港股', link: 'https://quote.eastmoney.com/hk/06618.html' },
-            { key: 'hk07618', name: '京东工业', code: '07618.HK', market: '港股', link: 'https://quote.eastmoney.com/hk/07618.html' },
-            { key: 'usDADA', name: '达达集团', code: 'DADA', market: '美股', link: 'https://quote.eastmoney.com/us/DADA.html' }
+            { key: 'hk07618', name: '京东工业', code: '07618.HK', market: '港股', link: 'https://quote.eastmoney.com/hk/07618.html' }
         ];
 
         function fmtNum(x) { return (typeof x === 'number' && isFinite(x)) ? x.toFixed(2) : '--'; }
