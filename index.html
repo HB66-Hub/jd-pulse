@@ -642,6 +642,64 @@
         .stat-change.positive { color: var(--jd-green); }
         .stat-change.negative { color: var(--jd-red); }
 
+        /* ====== 京东系股价卡片 ====== */
+        .stock-card {
+            background: var(--jd-card-glass);
+            backdrop-filter: blur(10px);
+            border-radius: var(--radius-sm);
+            padding: 20px 22px;
+            box-shadow: var(--shadow-sm);
+            transition: all var(--transition);
+            text-decoration: none;
+            color: var(--jd-text);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+
+        .stock-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 3px;
+            background: linear-gradient(90deg, var(--jd-red), var(--jd-blue));
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform var(--transition);
+        }
+
+        .stock-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
+        .stock-card:hover::before { transform: scaleX(1); }
+
+        .sc-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+        .sc-name { font-weight: 700; font-size: 0.95rem; }
+        .sc-code { font-size: 0.72rem; color: var(--jd-text-secondary); background: rgba(0,0,0,0.05); padding: 2px 8px; border-radius: 50px; white-space: nowrap; }
+        .sc-price { font-size: 1.55rem; font-weight: 800; font-family: 'SF Mono', 'Cascadia Mono', Consolas, monospace; letter-spacing: -0.5px; }
+        .sc-price .sc-cur { font-size: 0.75rem; color: var(--jd-text-secondary); font-weight: 600; margin-left: 4px; }
+        .sc-chg { display: inline-flex; align-items: center; gap: 4px; font-size: 0.82rem; font-weight: 700; padding: 3px 10px; border-radius: 50px; }
+        .sc-chg.up { color: #fff; background: var(--jd-green); }
+        .sc-chg.down { color: #fff; background: var(--jd-red); }
+        .sc-chg.flat { color: var(--jd-text-secondary); background: rgba(0,0,0,0.06); }
+        .sc-spark { width: 100%; height: 42px; display: block; }
+        .sc-foot { display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; color: var(--jd-text-secondary); gap: 8px; }
+        .sc-foot .sc-hl { font-family: 'SF Mono', Consolas, monospace; }
+
+        .stock-note {
+            text-align: center;
+            font-size: 0.75rem;
+            color: var(--jd-text-secondary);
+            margin: -28px auto 40px;
+            max-width: 1200px;
+            padding: 0 20px;
+        }
+
+        [data-theme="dark"] .sc-code { background: rgba(255,255,255,0.1); }
+        [data-theme="dark"] .sc-chg.flat { background: rgba(255,255,255,0.1); }
+        [data-theme="dark"] .stock-card { border-color: rgba(255,255,255,0.08); }
+
         /* ====== Footer ====== */
         .footer {
             text-align: center;
@@ -749,8 +807,14 @@
 
     <main class="container">
 
-        <!-- ====== Stats Row (populated from data.js) ====== -->
-        <div class="stats-row reveal" id="stats-row"></div>
+        <!-- ====== 京东系股价（五家上市公司） ====== -->
+        <div class="section-header reveal">
+            <div class="section-icon stats">📈</div>
+            <h2>京东系股价</h2>
+            <span class="section-badge" id="stock-update-time">加载中…</span>
+        </div>
+        <div class="stats-row reveal" id="stock-grid"></div>
+        <p class="stock-note">行情数据来自腾讯财经公开接口 · 展示最近收盘价与近 12 个交易日走势 · 点击卡片查看完整行情</p>
 
         <!-- ====== Featured News ====== -->
         <div class="section-header reveal">
@@ -790,15 +854,106 @@
         // Sources: 财联社 / 东方财富 / 同花顺 / Wind金融终端 / 36氪 / 京东官方
 
         // ====== Render Functions ======
-        function renderStats() {
-            if (typeof STATS_DATA === 'undefined') return;
-            document.getElementById('stats-row').innerHTML = STATS_DATA.map(s => `
-                <div class="stat-card">
-                    <div class="stat-value">${s.value}</div>
-                    <div class="stat-label">${s.label}</div>
-                    <div class="stat-change ${s.positive ? 'positive' : 'negative'}">${s.change}</div>
-                </div>
-            `).join('');
+        // ====== 京东系股价（五家上市公司行情） ======
+        const STOCKS = [
+            { key: 'hk09618', name: '京东集团', code: '09618.HK', market: '港股', link: 'https://quote.eastmoney.com/hk/09618.html' },
+            { key: 'hk02618', name: '京东物流', code: '02618.HK', market: '港股', link: 'https://quote.eastmoney.com/hk/02618.html' },
+            { key: 'hk06618', name: '京东健康', code: '06618.HK', market: '港股', link: 'https://quote.eastmoney.com/hk/06618.html' },
+            { key: 'hk07618', name: '京东工业', code: '07618.HK', market: '港股', link: 'https://quote.eastmoney.com/hk/07618.html' },
+            { key: 'usDADA', name: '达达集团', code: 'DADA', market: '美股', link: 'https://quote.eastmoney.com/us/DADA.html' }
+        ];
+
+        function fmtNum(x) { return (typeof x === 'number' && isFinite(x)) ? x.toFixed(2) : '--'; }
+
+        function sparkline(closes, up) {
+            if (!closes || closes.length < 2) return '';
+            const w = 100, h = 42, pad = 2;
+            const min = Math.min.apply(null, closes);
+            const max = Math.max.apply(null, closes);
+            const range = (max - min) || 1;
+            const pts = closes.map((c, i) => {
+                const x = pad + (i / (closes.length - 1)) * (w - pad * 2);
+                const y = h - pad - ((c - min) / range) * (h - pad * 2);
+                return x.toFixed(1) + ',' + y.toFixed(1);
+            });
+            const last = pts[pts.length - 1].split(',');
+            const color = up ? '#00b894' : '#E2231A';
+            return `<svg class="sc-spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+                <polygon points="${pad},${h - pad} ${pts.join(' ')} ${w - pad},${h - pad}" fill="${color}" opacity="0.08"/>
+                <polyline points="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="${last[0]}" cy="${last[1]}" r="2.5" fill="${color}"/>
+            </svg>`;
+        }
+
+        function renderStocks(data) {
+            const grid = document.getElementById('stock-grid');
+            if (!grid) return;
+            const t = document.getElementById('stock-update-time');
+            if (t) t.textContent = data.time ? '更新 ' + data.time : '行情';
+            grid.innerHTML = STOCKS.map(s => {
+                const q = data.quotes[s.key];
+                const cur = s.market === '美股' ? '美元' : '港元';
+                if (!q || !isFinite(q.price)) {
+                    return `<a class="stock-card" href="${s.link}" target="_blank" rel="noopener">
+                        <div class="sc-head"><span class="sc-name">${s.name}</span><span class="sc-code">${s.code}</span></div>
+                        <div class="sc-price">--<span class="sc-cur">${cur}</span></div>
+                        <div class="sc-foot"><span>行情暂不可用</span></div>
+                    </a>`;
+                }
+                const up = q.chg > 0, down = q.chg < 0;
+                const cls = up ? 'up' : down ? 'down' : 'flat';
+                const arrow = up ? '▲' : down ? '▼' : '—';
+                const k = data.klines[s.key] || [];
+                const trendUp = k.length >= 2 ? k[k.length - 1] >= k[0] : up;
+                const hl = (q.high > 0 && q.low > 0) ? `高 ${fmtNum(q.high)} · 低 ${fmtNum(q.low)}` : '—';
+                return `<a class="stock-card" href="${s.link}" target="_blank" rel="noopener">
+                    <div class="sc-head">
+                        <span class="sc-name">${s.name}</span>
+                        <span class="sc-code">${s.code}</span>
+                    </div>
+                    <div class="sc-price">${fmtNum(q.price)}<span class="sc-cur">${cur}</span></div>
+                    <div><span class="sc-chg ${cls}">${arrow} ${q.chg > 0 ? '+' : ''}${fmtNum(q.chg)}（${q.pct > 0 ? '+' : ''}${fmtNum(q.pct)}%）</span></div>
+                    ${sparkline(k, trendUp)}
+                    <div class="sc-foot"><span class="sc-hl">${hl}</span><span>${s.market}</span></div>
+                </a>`;
+            }).join('');
+        }
+
+        function loadStocksJsonp() {
+            // 无 /api/stocks 代理（静态托管）时：script 注入读取腾讯报价全局变量
+            const s = document.createElement('script');
+            s.src = 'https://qt.gtimg.cn/q=' + STOCKS.map(x => x.key).join(',');
+            s.onload = function () {
+                const quotes = {};
+                STOCKS.forEach(st => {
+                    const v = window['v_' + st.key];
+                    if (!v) return;
+                    const f = String(v).split('~');
+                    quotes[st.key] = {
+                        name: f[1] || '', price: parseFloat(f[3]), prevClose: parseFloat(f[4]),
+                        open: parseFloat(f[5]), high: parseFloat(f[33]), low: parseFloat(f[34]),
+                        chg: parseFloat(f[31]), pct: parseFloat(f[32]), time: f[30] || ''
+                    };
+                });
+                renderStocks({ time: '实时', quotes, klines: {} });
+            };
+            s.onerror = function () {
+                const t = document.getElementById('stock-update-time');
+                if (t) t.textContent = '暂不可用';
+            };
+            document.head.appendChild(s);
+        }
+
+        async function loadStocks() {
+            try {
+                const r = await fetch('/api/stocks', { cache: 'no-store' });
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                const data = await r.json();
+                if (data && data.quotes) { renderStocks(data); return; }
+                throw new Error('bad payload');
+            } catch (e) {
+                loadStocksJsonp();
+            }
         }
 
         function renderTicker() {
@@ -957,12 +1112,13 @@
         }
 
         // ====== Initial Render ======
-        renderStats();
+        loadStocks();
         renderTicker();
         renderSources();
         renderNews();
         renderTimeline();
         renderDateChips();
+        setInterval(loadStocks, 60000); // 每分钟刷新一次行情
 
         // 日期输入框（2026-08-01 ~ 今天）
         const dateInput = document.getElementById('date-input');
