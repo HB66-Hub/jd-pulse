@@ -192,6 +192,118 @@
             font-size: 1.2rem;
         }
 
+        /* ====== Date Bar（按日期查看，2026-08-01 起） ====== */
+        .datebar {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            max-width: 1200px;
+            margin: 0 auto 24px;
+            padding: 0 20px;
+        }
+
+        .datebar-label {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--jd-text);
+            white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .datebar-chips {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            flex: 1;
+        }
+
+        .date-chip {
+            padding: 8px 16px;
+            border: 1.5px solid rgba(0,0,0,0.08);
+            border-radius: 50px;
+            background: var(--jd-card-glass);
+            backdrop-filter: blur(10px);
+            color: var(--jd-text);
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all var(--transition);
+            font-family: inherit;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .date-chip:hover, .date-chip.active {
+            background: var(--jd-blue);
+            color: #fff;
+            border-color: var(--jd-blue);
+            box-shadow: 0 6px 20px rgba(9,132,227,0.3);
+            transform: translateY(-2px);
+        }
+
+        .date-chip .chip-count {
+            font-size: 0.72rem;
+            opacity: 0.8;
+            margin-left: 4px;
+        }
+
+        #date-input {
+            padding: 8px 14px;
+            border: 1.5px solid rgba(0,0,0,0.08);
+            border-radius: 50px;
+            background: var(--jd-card-glass);
+            backdrop-filter: blur(10px);
+            color: var(--jd-text);
+            font-size: 0.85rem;
+            font-family: inherit;
+            cursor: pointer;
+            box-shadow: var(--shadow-sm);
+            outline: none;
+            transition: all var(--transition);
+        }
+
+        #date-input:hover, #date-input:focus {
+            border-color: var(--jd-blue);
+            box-shadow: 0 6px 20px rgba(9,132,227,0.2);
+        }
+
+        [data-theme="dark"] .date-chip, [data-theme="dark"] #date-input {
+            border-color: rgba(255,255,255,0.12);
+        }
+
+        /* 新闻卡片作为链接 */
+        a.news-card {
+            display: block;
+            text-decoration: none;
+            color: var(--jd-text);
+        }
+
+        a.news-card.featured {
+            display: grid;
+        }
+
+        .news-card .card-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            margin-top: 12px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--jd-blue);
+            background: rgba(9,132,227,0.08);
+            padding: 4px 12px;
+            border-radius: 50px;
+            transition: all var(--transition);
+        }
+
+        .news-card:hover .card-link {
+            background: var(--jd-blue);
+            color: #fff;
+        }
+
         /* ====== Ticker ====== */
         .ticker-wrap {
             position: relative;
@@ -618,6 +730,13 @@
         <button id="theme-toggle" class="toolbar-btn" title="切换主题">🌓</button>
     </div>
 
+    <!-- ====== 按日期查看（2026-08-01 起） ====== -->
+    <div class="datebar reveal">
+        <span class="datebar-label">📅 按日期查看</span>
+        <div class="datebar-chips" id="date-chips"></div>
+        <input type="date" id="date-input" title="选择具体日期（2026年8月1日起）">
+    </div>
+
     <!-- ====== Ticker ====== -->
     <div class="ticker-wrap reveal">
         <div class="ticker">
@@ -705,14 +824,29 @@
         function renderNews(filter = 'all') {
             if (typeof NEWS_DATA === 'undefined') return;
             const grid = document.getElementById('news-grid');
-            const filtered = filter === 'all' ? NEWS_DATA : NEWS_DATA.filter(n => n.tag === filter);
-            document.getElementById('news-count').textContent = filtered.length + '篇';
+            let list = filter === 'all' ? NEWS_DATA : NEWS_DATA.filter(n => n.tag === filter);
+            if (currentDate !== 'all') list = list.filter(n => n.date === currentDate);
 
-            grid.innerHTML = filtered.map((n, idx) => {
-                const isFirst = idx === 0 && filter === 'all';
+            const badge = document.getElementById('news-count');
+            badge.textContent = currentDate === 'all'
+                ? list.length + '篇'
+                : fmtDateFullCn(currentDate) + ' · ' + list.length + '篇';
+
+            if (list.length === 0) {
+                grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
+                    <div class="empty-icon">🗓️</div>
+                    <p>该日期暂无京东相关新闻，试试其他日期吧</p>
+                </div>`;
+                return;
+            }
+
+            grid.innerHTML = list.map((n, idx) => {
+                const url = escAttr(newsUrl(n));
+                const linkBadge = `<span class="card-link">🔗 阅读原文 ↗</span>`;
+                const isFirst = idx === 0 && filter === 'all' && currentDate === 'all';
                 if (isFirst) {
                     return `
-                    <div class="news-card featured">
+                    <a class="news-card featured" href="${url}" target="_blank" rel="noopener">
                         <div class="featured-visual">${n.source || '🔥'}</div>
                         <div class="featured-content">
                             <div class="card-meta">
@@ -722,12 +856,13 @@
                             </div>
                             <h3>${n.title}</h3>
                             <p>${n.summary}</p>
+                            ${linkBadge}
                         </div>
                         <div class="card-arrow">→</div>
-                    </div>`;
+                    </a>`;
                 }
                 return `
-                <div class="news-card">
+                <a class="news-card" href="${url}" target="_blank" rel="noopener">
                     <div class="card-meta">
                         <span class="card-tag ${n.tagClass}">${n.tagLabel}</span>
                         ${n.source ? `<span class="card-source">📌 ${n.source}</span>` : ''}
@@ -735,8 +870,9 @@
                     </div>
                     <h3>${n.title}</h3>
                     <p>${n.summary}</p>
+                    ${linkBadge}
                     <div class="card-arrow">→</div>
-                </div>`;
+                </a>`;
             }).join('');
         }
 
@@ -751,12 +887,98 @@
             `).join('');
         }
 
+        // ====== 日期筛选（2026-08-01 起） ======
+        const DATE_START = '2026-08-01';
+        let currentDate = 'all';
+
+        function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+        function todayStr() {
+            const d = new Date();
+            return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+        }
+
+        function fmtDateCn(dateStr) {
+            const p = dateStr.split('-');
+            return parseInt(p[1], 10) + '月' + parseInt(p[2], 10) + '日';
+        }
+
+        function fmtDateFullCn(dateStr) {
+            const p = dateStr.split('-');
+            return p[0] + '年' + parseInt(p[1], 10) + '月' + parseInt(p[2], 10) + '日';
+        }
+
+        // 新闻原文链接：优先使用数据中的 link，缺失时回退到搜索
+        function newsUrl(n) {
+            if (n.link && n.link.trim()) return n.link.trim();
+            return 'https://www.baidu.com/s?wd=' + encodeURIComponent(n.title + ' ' + (n.source || '京东'));
+        }
+
+        function escAttr(s) {
+            return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+        }
+
+        function activeFilter() {
+            const btn = document.querySelector('.toolbar-btn[data-filter].active');
+            return btn ? btn.dataset.filter : 'all';
+        }
+
+        function renderDateChips() {
+            if (typeof NEWS_DATA === 'undefined') return;
+            const chipsEl = document.getElementById('date-chips');
+            const dates = [...new Set(NEWS_DATA.map(n => n.date).filter(d => d >= DATE_START))].sort().reverse();
+            const today = todayStr();
+            const end = dates.length ? (dates[0] > today ? dates[0] : today) : today;
+            const startMs = new Date(DATE_START + 'T00:00:00').getTime();
+            const endMs = new Date(end + 'T00:00:00').getTime();
+            const MAX_CHIPS = 31; // 日期较多时只展示最近一个月，其余用日期输入框选择
+
+            let html = `<button class="date-chip${currentDate === 'all' ? ' active' : ''}" data-date="all">📋 全部</button>`;
+            let t = startMs, count = 0;
+            while (t <= endMs && count < MAX_CHIPS) {
+                const d = new Date(t);
+                const s = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+                const n = NEWS_DATA.filter(x => x.date === s).length;
+                html += `<button class="date-chip${currentDate === s ? ' active' : ''}" data-date="${s}">${fmtDateCn(s)}${n ? `<span class="chip-count">·${n}</span>` : ''}</button>`;
+                t += 86400000;
+                count++;
+            }
+            chipsEl.innerHTML = html;
+
+            chipsEl.querySelectorAll('.date-chip').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    currentDate = this.dataset.date === 'all' ? 'all' : this.dataset.date;
+                    const input = document.getElementById('date-input');
+                    input.value = currentDate === 'all' ? '' : currentDate;
+                    renderDateChips();
+                    renderNews(activeFilter());
+                });
+            });
+        }
+
         // ====== Initial Render ======
         renderStats();
         renderTicker();
         renderSources();
         renderNews();
         renderTimeline();
+        renderDateChips();
+
+        // 日期输入框（2026-08-01 ~ 今天）
+        const dateInput = document.getElementById('date-input');
+        dateInput.min = DATE_START;
+        dateInput.max = todayStr();
+        dateInput.addEventListener('change', function () {
+            const v = this.value;
+            if (!v || v < DATE_START) {
+                currentDate = 'all';
+                this.value = '';
+            } else {
+                currentDate = v;
+            }
+            renderDateChips();
+            renderNews(activeFilter());
+        });
 
         // ====== Filter ======
         document.querySelectorAll('.toolbar-btn[data-filter]').forEach(btn => {
