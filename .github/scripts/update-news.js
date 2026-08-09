@@ -377,6 +377,7 @@ async function main() {
       tagClass: TAG_CLASS[tag],
       date: f.date,
       source: f.source,
+      link: f.link || '',
       title: f.title,
       summary: base.length > 140 ? base.slice(0, 140) + '……' : base || f.title,
     });
@@ -423,6 +424,7 @@ async function main() {
         `    tagClass: ${jsStr(n.tagClass)},\n` +
         `    date: ${jsStr(n.date)},\n` +
         `    source: ${jsStr(n.source)},\n` +
+        `    link: ${jsStr(n.link || '')},\n` +
         `    title: ${jsStr(n.title)},\n` +
         `    summary: ${jsStr(n.summary)}\n` +
         `  }`
